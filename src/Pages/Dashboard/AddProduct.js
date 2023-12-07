@@ -1,8 +1,8 @@
 import React, { useEffect, useRef, useState } from "react";
 import { Axios } from "../../Api/axios";
 import Loading from "../../components/Loading/Loading";
-import { Card, Form } from "react-bootstrap";
-import { CAT, Pro, cat } from "../../Api/Api";
+import { Button, Card, Form } from "react-bootstrap";
+import { CAT, Pro, baseUrl, cat } from "../../Api/Api";
 import { useNavigate } from "react-router-dom";
 import axios from "axios";
 
@@ -11,8 +11,11 @@ function AddProduct() {
   const [images, setImages] = useState([]);
   const [loading, setLoading] = useState(false);
   const [sent, setSent] = useState(false);
+  const [id, setId] = useState();
   const [upLoading, setUpLoading] = useState(0);
   const nav = useNavigate();
+
+  // console.log(upLoading)
 
   //Ref
   const focus = useRef(null);
@@ -21,11 +24,13 @@ function AddProduct() {
   }, []);
 
   const progress = useRef([]);
-
+  console.log(progress);
   const uploadImage = useRef(null);
   function handleUploadImage() {
     uploadImage.current.click();
   }
+
+  const ids = useRef([]);
 
   const [form, setForm] = useState({
     category: "",
@@ -67,16 +72,17 @@ function AddProduct() {
   async function handleSubmitForm() {
     try {
       const res = await Axios.post(`${Pro}/add`, dummyForm);
-      console.log(res);
+      console.log(res.data.id);
+      setId(res.data.id);
     } catch (err) {
       console.log(err);
     }
   }
-  
+
   const j = useRef(-1);
   //handleChangesImage
   async function handleChangesImage(e) {
-    setImages((prev) => [...prev,...e.target.files]);
+    setImages((prev) => [...prev, ...e.target.files]);
     const imagesAsFiles = e.target.files;
     const data = new FormData();
     for (let index = 0; index < imagesAsFiles.length; index++) {
@@ -85,17 +91,23 @@ function AddProduct() {
       data.append("product_id", id);
       try {
         const res = await Axios.post("/product-img/add", data, {
-          onUploadProgress : (ProgressEvent) => {
-            const {loaded , total} = ProgressEvent;
-            console.log(loaded);
-            console.log(total);
-            const percent = Math.floor( (loaded * 100) / total);
-            if (percent % 10 === 0)
-            progress.current[j.current].style.width = `${percent}%` ;
-            progress.current[j.current].setAttribute(`percent`,`${percent}%` );
-          }
+          onUploadProgress: (ProgressEvent) => {
+            const { loaded, total } = ProgressEvent;
+            // console.log(loaded);
+            // console.log(total);
+            const percent = Math.floor((loaded * 100) / total);
+            if (percent % 10 === 0) {
+              progress.current[j.current].style.width = `${percent}%`;
+              progress.current[j.current].setAttribute(
+                `percent`,
+                `${percent}%`
+              );
+            }
+          },
         });
-        console.log(res);
+        // console.log(res);
+        ids.current[j.current] = res.data.id;
+        // console.log(ids)
       } catch (err) {
         console.log(err);
       }
@@ -134,6 +146,19 @@ function AddProduct() {
     }
   }
 
+  // Handle Delete
+  async function handleDelete(id, img) {
+    const findId = ids.current[id];
+    try{
+      const res = await Axios.delete(`/product-img/${findId}`);
+      setImages((prev) => prev.filter((image) => image !== img))
+      ids.current = ids.current.filter((i) => i !== findId);
+      --j.current;
+      console.log(res)
+    }catch(err){
+      console.log(err)
+    }
+  }
   //Mapping:
   const showCategories = categories.map((item, index) => (
     <option key={index} value={item.id}>
@@ -142,27 +167,32 @@ function AddProduct() {
   ));
 
   const showImages = images.map((img, index) => (
-    <div className="mt-3 border py-2 rounded w-100">
-      <div
-        key={index}
-        style={{ borderRadius: "1rem" }}
-        className="d-flex aling-items-center justify-content-start gap-2"
-      >
-        <img width={"60px"} src={URL.createObjectURL(img)} />
-        <div className="aling-items-center" style={{ marginLeft: "2rem" }}>
-          <p>{img.name}</p>
-          <span>
-            {" "}
-            {(img.size / 1024).toFixed(2) < 900
-              ? (img.size / 1024).toFixed(2) + " KB"
-              : (img.size / (1024 * 1024)).toFixed(2) + " MB"}
-          </span>
+    <div className=" border p-2 w-100">
+      <div className="d-flex align-items-center justify-content-between">
+        <div className="d-flex aling-items-center justify-content-start gap-2">
+          <img width="80px" src={URL.createObjectURL(img)} />
+          <div>
+            <p className="mb-1">{img.name}</p>
+            <span>
+              {(img.size / 1024).toFixed(2) < 900
+                ? (img.size / 1024).toFixed(2) + " KB"
+                : (img.size / (1024 * 1024)).toFixed(2) + " MB"}
+            </span>
+          </div>
         </div>
+        <Button variant="danger" onClick={() => handleDelete(index, img)}>
+          delete
+        </Button>
       </div>
       <div className="custom-progress">
-        <span 
-        ref={(e) => {progress.current = e}}
-        className="inner-progress"></span>
+        <span
+          ref={(e) => {
+            progress.current[index] = e;
+          }}
+          // percent = {`${upLoading}%`}
+          // style = {{width: `${upLoading}%`}}
+          className="inner-progress"
+        ></span>
       </div>
     </div>
   ));
@@ -170,7 +200,7 @@ function AddProduct() {
   return (
     <>
       {loading && <Loading />}
-      <Form className="bg-white w-100 p-5" onSubmit={handleSubmit}>
+      <Form className="bg-white w-100 p-5" onSubmit={handleEditProdcut}>
         <Form.Group className="mb-3" controlId="exampleForm.ControlInput6">
           <Form.Label>Category:</Form.Label>
           <Form.Select
@@ -263,7 +293,7 @@ function AddProduct() {
           className="d-flex align-items-center justify-content-center w-100 pt-4 mb-3 rounded gap-2 flex-column"
           style={{
             border: sent ? "3px dashed #538bb5" : "3px dashed gray",
-            cursor: sent?  "pointer" : 'none',
+            cursor: sent ? "pointer" : "none",
           }}
           onClick={handleUploadImage}
         >
