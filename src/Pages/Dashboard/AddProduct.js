@@ -1,65 +1,66 @@
-import React, { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { Button, Form, FormControl } from "react-bootstrap";
 import { Axios } from "../../Api/axios";
+import { CAT, Cat, Pro } from "../../Api/Api";
 import Loading from "../../components/Loading/Loading";
-import { Button, Card, Form } from "react-bootstrap";
-import { CAT, Pro, baseUrl, cat } from "../../Api/Api";
 import { useNavigate } from "react-router-dom";
-import axios from "axios";
 
-function AddProduct() {
-  const [categories, setCatategories] = useState([]);
-  const [images, setImages] = useState([]);
-  const [loading, setLoading] = useState(false);
-  const [sent, setSent] = useState(false);
-  const [id, setId] = useState();
-  const [upLoading, setUpLoading] = useState(0);
-  const nav = useNavigate();
-
-  // console.log(upLoading)
-
-  //Ref
-  const focus = useRef(null);
-  useEffect(() => {
-    focus.current.focus();
-  }, []);
-
-  const progress = useRef([]);
-  console.log(progress);
-  const uploadImage = useRef(null);
-  function handleUploadImage() {
-    uploadImage.current.click();
-  }
-
-  const ids = useRef([]);
-
+export default function AddProduct() {
   const [form, setForm] = useState({
-    category: "",
+    category: "Select Category",
     title: "",
     description: "",
     price: "",
     discount: "",
     About: "",
   });
-
   const dummyForm = {
     category: null,
-    title: "Dummy",
-    description: "Dummy",
-    price: "200",
-    discount: "0",
-    About: "Dummy",
+    title: "dummy",
+    description: "dummy",
+    price: 222,
+    discount: 0,
+    About: "About",
   };
+  const [images, setImages] = useState([]);
+  const [categories, setCategories] = useState([]);
+  const [sent, SetSent] = useState(false);
 
+  console.log(images);
+
+  const [loading, setLoading] = useState(false);
+  const [id, setId] = useState();
+  const nav = useNavigate();
+
+  // Ref
+  const focus = useRef("");
+  const openImage = useRef(null);
+  const progress = useRef([]);
+  const ids = useRef([]);
+
+  console.log(ids);
+
+  // Handle Focus
+  useEffect(() => {
+    focus.current.focus();
+  }, []);
+
+  function handleOpenImage() {
+    openImage.current.click();
+  }
+
+  // Get ALl Categories
   useEffect(() => {
     Axios.get(`/${CAT}`)
-      .then((data) => setCatategories(data.data))
+      .then((data) => setCategories(data.data))
       .catch((err) => console.log(err));
   }, []);
 
-  //handleEditProdcut
-  async function handleEditProdcut() {
+  // Handle Edit
+  async function HandleEdit(e) {
     setLoading(true);
     e.preventDefault();
+
     try {
       const res = await Axios.post(`${Pro}/edit/${id}`, form);
       nav("/dashboard/products");
@@ -68,251 +69,223 @@ function AddProduct() {
       console.log(err);
     }
   }
-  //handleSubmitForm
-  async function handleSubmitForm() {
+
+  // Handle Submit Form
+  async function HandleSubmitForm() {
     try {
       const res = await Axios.post(`${Pro}/add`, dummyForm);
-      console.log(res.data.id);
       setId(res.data.id);
     } catch (err) {
       console.log(err);
     }
   }
 
+  // HandleChange
+  function handleChange(e) {
+    setForm({ ...form, [e.target.name]: e.target.value });
+    SetSent(1);
+    if (sent !== 1) {
+      HandleSubmitForm();
+    }
+  }
+
+  // Handle Image Changes
+
   const j = useRef(-1);
-  //handleChangesImage
-  async function handleChangesImage(e) {
+
+  async function HandleImagesChange(e) {
     setImages((prev) => [...prev, ...e.target.files]);
     const imagesAsFiles = e.target.files;
+
     const data = new FormData();
-    for (let index = 0; index < imagesAsFiles.length; index++) {
+    for (let i = 0; i < imagesAsFiles.length; i++) {
       j.current++;
-      data.append("image", imagesAsFiles[index]);
+      data.append("image", imagesAsFiles[i]);
       data.append("product_id", id);
       try {
         const res = await Axios.post("/product-img/add", data, {
           onUploadProgress: (ProgressEvent) => {
             const { loaded, total } = ProgressEvent;
-            // console.log(loaded);
-            // console.log(total);
             const percent = Math.floor((loaded * 100) / total);
             if (percent % 10 === 0) {
               progress.current[j.current].style.width = `${percent}%`;
               progress.current[j.current].setAttribute(
-                `percent`,
+                "percent",
                 `${percent}%`
               );
             }
           },
         });
-        // console.log(res);
         ids.current[j.current] = res.data.id;
-        // console.log(ids)
       } catch (err) {
         console.log(err);
       }
     }
   }
-  //handleChange
-  const handleChange = (e) => {
-    setForm({ ...form, [e.target.name]: e.target.value });
-    setSent(true);
-    if (!sent) {
-      handleSubmitForm();
-    }
-  };
-  // handleSubmit
-  async function handleSubmit(e) {
-    e.preventDefault();
-    setLoading(true);
+
+  // Handle Image Delete
+  async function handleDelete(id, file) {
+    const findId = ids.current[id];
+    console.log(findId);
     try {
-      const data = new FormData();
-      data.append("category", form.category);
-      data.append("title", form.title);
-      data.append("description", form.description);
-      data.append("About", form.About);
-      data.append("price", form.price);
-      data.append("discount", form.discount);
-      for (let i = 0; i < images.length; i++) {
-        data.append("images[]", images[i]);
-      }
-      const res = await Axios.post(`${Pro}/add`, data);
-      console.log(res);
-      setLoading(false);
-      nav("/dashboard/products");
+      await Axios.delete(`/product-img/${findId}`).then((data) =>
+        console.log(data)
+      );
+      setImages((prev) => prev.filter((img) => img !== file));
+      ids.current = ids.current.filter((i) => i !== findId);
+      j.current--;
     } catch (err) {
-      setLoading(false);
       console.log(err);
     }
   }
 
-  // Handle Delete
-  async function handleDelete(id, img) {
-    const findId = ids.current[id];
-    try{
-      const res = await Axios.delete(`/product-img/${findId}`);
-      setImages((prev) => prev.filter((image) => image !== img))
-      ids.current = ids.current.filter((i) => i !== findId);
-      --j.current;
-      console.log(res)
-    }catch(err){
-      console.log(err)
-    }
-  }
-  //Mapping:
-  const showCategories = categories.map((item, index) => (
-    <option key={index} value={item.id}>
+  // Mapping
+  const categoriesShow = categories.map((item, key) => (
+    <option key={key} value={item.id}>
       {item.title}
     </option>
   ));
 
-  const showImages = images.map((img, index) => (
-    <div className=" border p-2 w-100">
-      <div className="d-flex align-items-center justify-content-between">
-        <div className="d-flex aling-items-center justify-content-start gap-2">
-          <img width="80px" src={URL.createObjectURL(img)} />
-          <div>
-            <p className="mb-1">{img.name}</p>
-            <span>
-              {(img.size / 1024).toFixed(2) < 900
-                ? (img.size / 1024).toFixed(2) + " KB"
-                : (img.size / (1024 * 1024)).toFixed(2) + " MB"}
-            </span>
-          </div>
+  const imagesShow = images.map((img, key) => (
+    <div className="border p-2 w-100">
+      <div className="d-flex align-items-center justify-content-start gap-2 ">
+        <img src={URL.createObjectURL(img)} width="80px"></img>
+        <div>
+          <p className="mb-1">{img.name}</p>
+          <p>
+            {img.size / 1024 < 900
+              ? (img.size / 1024).toFixed(2) + "KB"
+              : (img.size / (1024 * 1024)).toFixed(2) + "MB"}
+          </p>
         </div>
-        <Button variant="danger" onClick={() => handleDelete(index, img)}>
-          delete
-        </Button>
       </div>
-      <div className="custom-progress">
+      <div className="custom-progress mt-3">
         <span
-          ref={(e) => {
-            progress.current[index] = e;
-          }}
-          // percent = {`${upLoading}%`}
-          // style = {{width: `${upLoading}%`}}
+          ref={(e) => (progress.current[key] = e)}
           className="inner-progress"
         ></span>
       </div>
+      <Button onClick={() => handleDelete(key, img)} variant="danger">
+        Delete
+      </Button>
     </div>
   ));
 
   return (
     <>
       {loading && <Loading />}
-      <Form className="bg-white w-100 p-5" onSubmit={handleEditProdcut}>
-        <Form.Group className="mb-3" controlId="exampleForm.ControlInput6">
-          <Form.Label>Category:</Form.Label>
+      <Form className="bg-white w-100 mx-2 p-3" onSubmit={HandleEdit}>
+        <Form.Group className="mb-3" controlId="category">
+          <Form.Label>Category</Form.Label>
           <Form.Select
-            onChange={handleChange}
-            value={form.category}
-            name="category"
             ref={focus}
+            value={form.category}
+            onChange={handleChange}
+            name="category"
+            placeholder="Title..."
           >
-            <option disabled value="">
-              Select Category
-            </option>
-            {showCategories}
+            <option disabled>Select Category</option>
+            {categoriesShow}
           </Form.Select>
         </Form.Group>
-        <Form.Group className="mb-3" controlId="exampleForm.ControlInput1">
-          <Form.Label>Title: </Form.Label>
+        <Form.Group className="mb-3" controlId="title">
+          <Form.Label>Title</Form.Label>
           <Form.Control
-            type="text"
-            placeholder="Your Title..."
-            onChange={handleChange}
             value={form.title}
-            name="title"
-            disabled={!sent}
             required
+            onChange={handleChange}
+            name="title"
+            type="text"
+            placeholder="Title..."
+            disabled={!sent}
           />
         </Form.Group>
-        <Form.Group className="mb-3" controlId="exampleForm.ControlInput2">
-          <Form.Label>Description:</Form.Label>
+        <Form.Group className="mb-3" controlId="description">
+          <Form.Label>Description</Form.Label>
           <Form.Control
+            value={form.description}
+            required
+            onChange={handleChange}
+            name="description"
             type="text"
             placeholder="Description..."
-            onChange={handleChange}
-            value={form.description}
-            name="description"
             disabled={!sent}
-            required
           />
         </Form.Group>
-        <Form.Group className="mb-3" controlId="exampleForm.ControlInput3">
-          <Form.Label>Price:</Form.Label>
+        <Form.Group className="mb-3" controlId="price">
+          <Form.Label>Price</Form.Label>
           <Form.Control
-            type="number"
-            placeholder="Price..."
-            onChange={handleChange}
             value={form.price}
-            name="price"
-            disabled={!sent}
             required
-          />
-        </Form.Group>
-        <Form.Group className="mb-3" controlId="exampleForm.ControlInput4">
-          <Form.Label>Discount:</Form.Label>
-          <Form.Control
-            type="number"
-            placeholder="Discount..."
             onChange={handleChange}
-            value={form.discount}
-            name="discount"
+            name="price"
+            type="text"
+            placeholder="Price..."
             disabled={!sent}
-            required
           />
         </Form.Group>
-        <Form.Group className="mb-3" controlId="exampleForm.ControlInput5">
-          <Form.Label>About:</Form.Label>
+        <Form.Group className="mb-3" controlId="discount">
+          <Form.Label>Discount</Form.Label>
           <Form.Control
+            value={form.discount}
+            required
+            onChange={handleChange}
+            name="discount"
+            type="text"
+            placeholder="Discount..."
+            disabled={!sent}
+          />
+        </Form.Group>
+        <Form.Group className="mb-3" controlId="About">
+          <Form.Label>About</Form.Label>
+          <Form.Control
+            value={form.About}
+            required
+            onChange={handleChange}
+            name="About"
             type="text"
             placeholder="About..."
-            onChange={handleChange}
-            value={form.About}
-            name="About"
             disabled={!sent}
-            required
           />
         </Form.Group>
-        <Form.Group className="mb-3" controlId="exampleForm.ControlInput7">
-          <Form.Label>Image:</Form.Label>
+        <Form.Group className="mb-3" controlId="images">
+          <Form.Label>Images</Form.Label>
           <Form.Control
-            type="file"
-            placeholder="Image..."
-            ref={uploadImage}
+            ref={openImage}
             hidden
-            disabled={!sent}
             multiple
-            onChange={handleChangesImage}
+            onChange={HandleImagesChange}
+            type="file"
+            disabled={!sent}
           />
-          <div className="mt-4"></div>
-          {showImages}
         </Form.Group>
         <div
-          className="d-flex align-items-center justify-content-center w-100 pt-4 mb-3 rounded gap-2 flex-column"
+          onClick={handleOpenImage}
+          className="d-flex align-items-center justify-content-center gap-2 py-3 rounded mb-2 w-100 flex-column"
           style={{
-            border: sent ? "3px dashed #538bb5" : "3px dashed gray",
-            cursor: sent ? "pointer" : "none",
+            border: !sent ? "2px dashed gray" : " 2px dashed #0086fe",
+            cursor: sent && "pointer",
           }}
-          onClick={handleUploadImage}
         >
           <img
+            // src={require("../../Assets/images/upload.png")}
             src="https://www.dygiphy.com.au/wp-content/uploads/increase-in-hosting-plan-cloud-storage-space-1024x683.png"
-            width="150px"
+            alt="Upload Here"
+            width="100px"
             style={{ filter: !sent && "grayscale(1)" }}
           />
-          <p style={{ color: sent ? "#538bb5" : "gray" }}>Upload Images: </p>
+          <p
+            className="fw-bold mb-0"
+            style={{ color: !sent ? "gray" : "#0086fe" }}
+          >
+            Upload Images
+          </p>
         </div>
-        <button
-          disabled={form.category === "" ? true : false}
-          className="button button-primary"
-        >
-          Save
-        </button>
+        <div className="d-flex align-items-start flex-column gap-2">
+          {imagesShow}
+        </div>
+        <button className="btn btn-primary">Save</button>
       </Form>
     </>
   );
 }
-
-export default AddProduct;
